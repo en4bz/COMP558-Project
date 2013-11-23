@@ -37,7 +37,7 @@
 
 #include "detectors.hpp"
 
-int detect(cv::Mat imgA, cv::Mat imgB) {
+int detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i line) {
     // check http://docs.opencv.org/doc/tutorials/features2d/table_of_content_features2d/table_of_content_features2d.html
     // for OpenCV general detection/matching framework details
 
@@ -66,6 +66,21 @@ int detect(cv::Mat imgA, cv::Mat imgB) {
     detector.detect( imgA, keypointsA );
     detector.detect( imgB, keypointsB );
 
+    const int max_distance = 10;
+
+    auto distance_filter = [&line](cv::KeyPoint kp){
+        double slope = (line[3] - line[1]) / (double)(line[2] - line[0]);
+        int y = slope*kp.pt.x + line[1];
+        std::cout << "y: " << y << "|" << slope << "|" << kp.pt << "|" << line << std::endl;
+        if (std::abs(kp.pt.y - y) > max_distance)
+            return false;
+        else
+            return true;
+    };
+
+    keypointsA.erase( std::remove_if(keypointsA.begin(), keypointsA.end(), distance_filter), keypointsA.end());
+    keypointsB.erase( std::remove_if(keypointsB.begin(), keypointsB.end(), distance_filter), keypointsB.end());
+
     // extract
     extractor.compute( imgA, keypointsA, descriptorsA );
     extractor.compute( imgB, keypointsB, descriptorsB );
@@ -73,8 +88,14 @@ int detect(cv::Mat imgA, cv::Mat imgB) {
     // match
     matcher.match(descriptorsA, descriptorsB, matches);
 
-    for(auto& x : matches)
-        std::cout << x.imgIdx << "|" << x.queryIdx << "|" << x.trainIdx << std::endl;
+    std::sort(matches.begin(),matches.end());
+    matches.erase(matches.begin()+5, matches.end());
+
+//    for(cv::KeyPoint x : keypointsA)
+//        std::cout << x.pt << std::endl;
+
+//    for(auto& x : matches)
+//        std::cout << x.imgIdx << "|" << x.queryIdx << "|" << x.trainIdx << std::endl;
 
     // Draw matches
     cv::Mat imgMatch;

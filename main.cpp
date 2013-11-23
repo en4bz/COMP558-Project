@@ -1,49 +1,56 @@
+#include <deque>
 #include <vector>
+#include <thread>
 #include <iostream>
 #include <algorithm>
-#include <opencv/cv.h>
-#include <opencv/cvaux.h>
-#include <opencv/highgui.h>
-#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/opencv.hpp>
+#include <boost/timer/timer.hpp>
 
-void filter_lines(std::vector<cv::Vec4i>& lines, double min = M_PI/6){
+#include "edges.hpp"
+#include "detectors.hpp"
 
-    auto filter =  [min](cv::Vec4i line){
-        const double angle = std::abs(std::atan2(line[1] - line[3], line[0] - line[2]));
-        std::cout << angle << std::endl;
-        return angle > min && angle < (M_PI - min);
-    };
 
-    //std::cout << "b: " << lines.size() << std::endl;
-    lines.erase( std::remove_if(lines.begin(), lines.end(), filter), lines.end());
-    //std::cout << "a: " << lines.size() << std::endl;
-}
 
 int main(int argc, char *argv[]){
-    cv::VideoCapture cap(1);
-    if(argc == 2)
+    cv::VideoCapture cap;
+    if(argc >= 2)
         cap.open(argv[1]);
+    else
+        cap.open(1);
 
-    cv::namedWindow("edges",0);
-    cv::namedWindow("lines",0);
-    for(;;){
-        cv::Mat frame, edges;
+    cv::namedWindow("scene",0);
+
+    std::deque<cv::Mat> img_queue;
+    while( cap.isOpened() ){
+        boost::timer::auto_cpu_timer t;
+        cv::Mat frame, gray;// edges;
         cap >> frame; // get a new frame from camera
-        cv::cvtColor(frame, edges, CV_BGR2GRAY);
-        cv::GaussianBlur(edges, edges, cv::Size(7,7), 1.5, 1.5);
-        cv::Canny(edges, edges, 0, 30, 3);
+        cv::cvtColor(frame, gray, CV_BGR2GRAY);
+        cv::GaussianBlur(gray, gray, cv::Size(7,7), 2, 2);
+        img_queue.push_back(gray);
+        if(img_queue.size() != 5 )
+            continue;
 
-        std::vector<cv::Vec4i> lines;
-        cv::HoughLinesP( edges, lines, 1, CV_PI/180, 80, 40, 10 );
-        filter_lines(lines);
-        cv::Mat line_im = cv::Mat::zeros(edges.size(),0);
-        for( size_t i = 0; i < lines.size(); i++ ){
-            cv::line( line_im, cv::Point(lines[i][0], lines[i][1]), cv::Point(lines[i][2], lines[i][3]), 255, 2, 8 );
-        }
-        cv::imshow("edges", edges);
-        cv::imshow("lines", line_im);
-        if(cv::waitKey(30) >= 0)
+        auto matches = get_matched_lines(img_queue.front(),img_queue.back());
+        //std::cout << matches.size() << std::endl;
+
+        cv::Vec4i one = matches[0].first;
+        cv::Vec4i two = matches[0].second;
+
+        cv::Point2i a(one[0],one[1]);
+        cv::Point2i b(one[2],one[3]);
+
+        cv::Point2i aa(two[0],two[1]);
+        cv::Point2i bb(two[2],two[3]);
+
+        cv::line(frame,a,b, CV_RGB(255, 0, 0));
+        cv::line(frame,aa,bb, CV_RGB(0, 255, 0));
+
+        cv::imshow("scene",frame);
+        img_queue.pop_front();
+        if(cv::waitKey(10) >= 0)
             break;
     }
+    cap.release();
     return 0;
 }
