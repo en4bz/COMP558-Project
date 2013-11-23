@@ -34,14 +34,14 @@ int main(int argc, char *argv[]){
         auto matches = get_matched_lines(img_queue.front(),img_queue.back());
         //std::cout << matches.size() << std::endl;
 
-        cv::Vec4i one = matches[0].first;
-        cv::Vec4i two = matches[0].second;
+        cv::Vec4i line_one = matches[0].first;
+        cv::Vec4i line_two = matches[0].second;
 
-        cv::Point2i a(one[0],one[1]);
-        cv::Point2i b(one[2],one[3]);
+        cv::Point2i a(line_one[0],line_one[1]);
+        cv::Point2i b(line_one[2],line_one[3]);
 
-        cv::Point2i aa(two[0],two[1]);
-        cv::Point2i bb(two[2],two[3]);
+        cv::Point2i aa(line_two[0],line_two[1]);
+        cv::Point2i bb(line_two[2],line_two[3]);
 
         cv::line(frame,a,b, CV_RGB(255, 0, 0));
         cv::line(frame,aa,bb, CV_RGB(0, 255, 0));

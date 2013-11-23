@@ -5,9 +5,10 @@
 #include <utility>
 #include <opencv2/opencv.hpp>
 
-/*Takes 2 images offset by a time interval
- *and return a vector of pairs which contain
- *matched lines in one and two
+/*Takes 2 images offset by some time interval
+ *and returns a vector of pairs each of which
+ *contain a pair of matches lines from the first
+ *image and the second image.
  */
 std::vector<std::pair<cv::Vec4i,cv::Vec4i>>
 get_matched_lines(const cv::Mat& pone, const cv::Mat& ptwo);
