@@ -37,49 +37,39 @@
 
 #include "detectors.hpp"
 
-int detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i line) {
-    // check http://docs.opencv.org/doc/tutorials/features2d/table_of_content_features2d/table_of_content_features2d.html
-    // for OpenCV general detection/matching framework details
+void distance_filter(cv::Vec4i line, std::vector<cv::KeyPoint> keypoints){
+    const int max_distance = 10;
+    auto filter = [=](cv::KeyPoint kp){
+        double slope = (line[3] - line[1]) / (double)(line[2] - line[0]);
+        int y = slope*kp.pt.x + line[1];
+        //std::cout << "y: " << y << "|" << slope << "|" << kp.pt << "|" << line << std::endl;
+        return std::abs(kp.pt.y - y) > max_distance;
+    };
+    keypoints.erase( std::remove_if(keypoints.begin(), keypoints.end(), filter), keypoints.end());
+}
+
+int detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i lineB) {
 
     std::vector<cv::KeyPoint> keypointsA, keypointsB;
     cv::Mat descriptorsA, descriptorsB;
     std::vector<cv::DMatch> matches;
 
-    // DETECTION
-    // Any openCV detector such as
+    // DETECTOR
     cv::FastFeatureDetector detector;//(2000,4);
 
     // DESCRIPTOR
-    // Our proposed FREAK descriptor
-    // (roation invariance, scale invariance, pattern radius corresponding to SMALLEST_KP_SIZE,
-    // number of octaves, optional vector containing the selected pairs)
-    // FREAK extractor(true, true, 22, 4, std::vector<int>());
     cv::FREAK extractor;
 
     // MATCHER
-    // The standard Hamming distance can be used such as
-    // BFMatcher matcher(NORM_HAMMING);
-    // or the proposed cascade of hamming distance using SSSE3
     cv::BFMatcher matcher(cv::NORM_HAMMING);
 
     // detect
     detector.detect( imgA, keypointsA );
     detector.detect( imgB, keypointsB );
 
-    const int max_distance = 10;
-
-    auto distance_filter = [&line](cv::KeyPoint kp){
-        double slope = (line[3] - line[1]) / (double)(line[2] - line[0]);
-        int y = slope*kp.pt.x + line[1];
-        std::cout << "y: " << y << "|" << slope << "|" << kp.pt << "|" << line << std::endl;
-        if (std::abs(kp.pt.y - y) > max_distance)
-            return false;
-        else
-            return true;
-    };
-
-    keypointsA.erase( std::remove_if(keypointsA.begin(), keypointsA.end(), distance_filter), keypointsA.end());
-    keypointsB.erase( std::remove_if(keypointsB.begin(), keypointsB.end(), distance_filter), keypointsB.end());
+    //Fitler
+    distance_filter(lineA, keypointsA);
+    distance_filter(lineB, keypointsB);
 
     // extract
     extractor.compute( imgA, keypointsA, descriptorsA );

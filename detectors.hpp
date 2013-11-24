@@ -8,6 +8,6 @@
 
 #include <opencv2/opencv.hpp>
 
-int detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i);// = cv::Vec4i());
+int detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i lineB);// = cv::Vec4i());
 
 #endif

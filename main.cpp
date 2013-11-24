@@ -9,8 +9,6 @@
 #include "edges.hpp"
 #include "detectors.hpp"
 
-
-
 int main(int argc, char *argv[]){
     cv::VideoCapture cap;
     if(argc >= 2)
@@ -26,7 +24,6 @@ int main(int argc, char *argv[]){
         cv::Mat frame, gray;// edges;
         cap >> frame; // get a new frame from camera
         cv::cvtColor(frame, gray, CV_BGR2GRAY);
-        cv::GaussianBlur(gray, gray, cv::Size(7,7), 2, 2);
         img_queue.push_back(gray);
         if(img_queue.size() != 5 )
             continue;
@@ -45,6 +42,8 @@ int main(int argc, char *argv[]){
 
         cv::line(frame,a,b, CV_RGB(255, 0, 0));
         cv::line(frame,aa,bb, CV_RGB(0, 255, 0));
+
+        detect(img_queue.front(),img_queue.back(),line_one,line_two);
 
         cv::imshow("scene",frame);
         img_queue.pop_front();

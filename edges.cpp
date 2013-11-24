@@ -1,9 +1,14 @@
 #include "edges.hpp"
 
-std::vector<std::pair<cv::Vec4i,cv::Vec4i>> get_matched_lines(const cv::Mat& pone, const cv::Mat& ptwo){
+std::vector<std::pair<cv::Vec4i,cv::Vec4i>>
+get_matched_lines(const cv::Mat& pone, const cv::Mat& ptwo){
+
     cv::Mat one, two;
-    cv::Canny(pone, one, 0, 30, 3);
-    cv::Canny(ptwo, two, 0, 30, 3);
+    cv::GaussianBlur(pone, one, cv::Size(7,7), 2, 2);
+    cv::GaussianBlur(ptwo, two, cv::Size(7,7), 2, 2);
+
+    cv::Canny(one, one, 0, 30, 3);
+    cv::Canny(two, two, 0, 30, 3);
 
     std::vector<cv::Vec4i> one_lines;
     cv::HoughLinesP( one, one_lines, 1, CV_PI/180, 80, 40, 10 );
