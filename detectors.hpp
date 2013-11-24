@@ -8,6 +8,14 @@
 
 #include <opencv2/opencv.hpp>
 
-int detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i lineB);// = cv::Vec4i());
+class detector{
+    cv::FastFeatureDetector _detector;
+    cv::FREAK extractor;
+    cv::BFMatcher matcher;
+    std::string windowName;
+public:
+    detector(std::string pname) : matcher(cv::NORM_HAMMING), windowName(pname) {}
+    int detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i lineB);// = cv::Vec4i());
+};
 
 #endif

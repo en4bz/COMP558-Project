@@ -37,49 +37,44 @@
 
 #include "detectors.hpp"
 
-void distance_filter(cv::Vec4i line, std::vector<cv::KeyPoint> keypoints){
-    const int max_distance = 10;
-    auto filter = [=](cv::KeyPoint kp){
-        double slope = (line[3] - line[1]) / (double)(line[2] - line[0]);
-        int y = slope*kp.pt.x + line[1];
-        //std::cout << "y: " << y << "|" << slope << "|" << kp.pt << "|" << line << std::endl;
-        return std::abs(kp.pt.y - y) > max_distance;
+void distance_filter(cv::Vec4i line, std::vector<cv::KeyPoint>& keypoints){
+    auto filter = [&line](cv::KeyPoint kp){
+        const int max_distance = 25;
+        const int mid = (line[1]+line[3])/2;
+        return kp.pt.x < line[0] ||  kp.pt.x > line[2] || std::abs(kp.pt.y - mid) > max_distance;
     };
+
     keypoints.erase( std::remove_if(keypoints.begin(), keypoints.end(), filter), keypoints.end());
 }
 
-int detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i lineB) {
+int detector::detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i lineB) {
 
     std::vector<cv::KeyPoint> keypointsA, keypointsB;
     cv::Mat descriptorsA, descriptorsB;
     std::vector<cv::DMatch> matches;
 
-    // DETECTOR
-    cv::FastFeatureDetector detector;//(2000,4);
-
-    // DESCRIPTOR
-    cv::FREAK extractor;
-
-    // MATCHER
-    cv::BFMatcher matcher(cv::NORM_HAMMING);
-
     // detect
-    detector.detect( imgA, keypointsA );
-    detector.detect( imgB, keypointsB );
+    this->_detector.detect( imgA, keypointsA );
+    this->_detector.detect( imgB, keypointsB );
 
     //Fitler
     distance_filter(lineA, keypointsA);
     distance_filter(lineB, keypointsB);
 
+    if(keypointsA.size() < 1 || keypointsB.size() < 1)
+        return 1;
+
     // extract
-    extractor.compute( imgA, keypointsA, descriptorsA );
-    extractor.compute( imgB, keypointsB, descriptorsB );
+    this->extractor.compute( imgA, keypointsA, descriptorsA );
+    this->extractor.compute( imgB, keypointsB, descriptorsB );
 
     // match
-    matcher.match(descriptorsA, descriptorsB, matches);
+    this->matcher.match(descriptorsA, descriptorsB, matches);
 
-    std::sort(matches.begin(),matches.end());
-    matches.erase(matches.begin()+5, matches.end());
+//    const int to_keep = 20;
+
+//    std::sort(matches.begin(),matches.end());
+//    matches.erase(matches.begin() + to_keep, matches.end());
 
 //    for(cv::KeyPoint x : keypointsA)
 //        std::cout << x.pt << std::endl;
@@ -88,10 +83,18 @@ int detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i lineB) {
 //        std::cout << x.imgIdx << "|" << x.queryIdx << "|" << x.trainIdx << std::endl;
 
     // Draw matches
+    cv::Point2i a(lineA[0],lineA[1]);
+    cv::Point2i b(lineA[2],lineA[3]);
+
+    cv::Point2i aa(lineB[0],lineB[1]);
+    cv::Point2i bb(lineB[2],lineB[3]);
+
+    cv::line(imgA,  a, b, 0);
+    cv::line(imgB, aa,bb, 0);
+
     cv::Mat imgMatch;
     cv::drawMatches(imgA, keypointsA, imgB, keypointsB, matches, imgMatch);
 
-    cv::namedWindow("matches", 0);
-    cv::imshow("matches", imgMatch);
+    cv::imshow(this->windowName, imgMatch);
     return 0;
 }

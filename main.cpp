@@ -18,6 +18,7 @@ int main(int argc, char *argv[]){
 
     cv::namedWindow("scene",0);
 
+    detector d("scene");
     std::deque<cv::Mat> img_queue;
     while( cap.isOpened() ){
         boost::timer::auto_cpu_timer t;
@@ -34,18 +35,8 @@ int main(int argc, char *argv[]){
         cv::Vec4i line_one = matches[0].first;
         cv::Vec4i line_two = matches[0].second;
 
-        cv::Point2i a(line_one[0],line_one[1]);
-        cv::Point2i b(line_one[2],line_one[3]);
+        d.detect(img_queue.front(),img_queue.back(),line_one,line_two);
 
-        cv::Point2i aa(line_two[0],line_two[1]);
-        cv::Point2i bb(line_two[2],line_two[3]);
-
-        cv::line(frame,a,b, CV_RGB(255, 0, 0));
-        cv::line(frame,aa,bb, CV_RGB(0, 255, 0));
-
-        detect(img_queue.front(),img_queue.back(),line_one,line_two);
-
-        cv::imshow("scene",frame);
         img_queue.pop_front();
         if(cv::waitKey(10) >= 0)
             break;
