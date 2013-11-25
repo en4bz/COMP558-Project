@@ -1,6 +1,5 @@
 #include <deque>
 #include <vector>
-#include <thread>
 #include <iostream>
 #include <algorithm>
 #include <opencv2/opencv.hpp>
@@ -30,7 +29,7 @@ int main(int argc, char *argv[]){
             continue;
 
         auto matches = get_matched_lines(img_queue.front(),img_queue.back());
-        //std::cout << matches.size() << std::endl;
+        std::cout << matches.size() << std::endl;
 
         cv::Vec4i line_one = matches[0].first;
         cv::Vec4i line_two = matches[0].second;
@@ -38,7 +37,7 @@ int main(int argc, char *argv[]){
         d.detect(img_queue.front(),img_queue.back(),line_one,line_two);
 
         img_queue.pop_front();
-        if(cv::waitKey(10) >= 0)
+        if(cv::waitKey(100) >= 0)
             break;
     }
     cap.release();

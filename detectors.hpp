@@ -14,7 +14,7 @@ class detector{
     cv::BFMatcher matcher;
     std::string windowName;
 public:
-    detector(std::string pname) : matcher(cv::NORM_HAMMING), windowName(pname) {}
+    detector(std::string pname) : _detector(20), matcher(cv::NORM_HAMMING), windowName(pname) {}
     int detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i lineB);// = cv::Vec4i());
 };
 
