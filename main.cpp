@@ -1,4 +1,4 @@
-#include <deque>
+#include <list>
 #include <vector>
 #include <iostream>
 #include <algorithm>
@@ -15,10 +15,10 @@ int main(int argc, char *argv[]){
     else
         cap.open(1);
 
-    cv::namedWindow("scene",0);
+    cv::namedWindow("scene");
 
     detector d("scene");
-    std::deque<cv::Mat> img_queue;
+    std::list<cv::Mat> img_queue;
     while( cap.isOpened() ){
         boost::timer::auto_cpu_timer t;
         cv::Mat frame, gray;// edges;
@@ -29,7 +29,6 @@ int main(int argc, char *argv[]){
             continue;
 
         auto matches = get_matched_lines(img_queue.front(),img_queue.back());
-        std::cout << matches.size() << std::endl;
 
         cv::Vec4i line_one = matches[0].first;
         cv::Vec4i line_two = matches[0].second;
@@ -37,7 +36,7 @@ int main(int argc, char *argv[]){
         d.detect(img_queue.front(),img_queue.back(),line_one,line_two);
 
         img_queue.pop_front();
-        if(cv::waitKey(100) >= 0)
+        if(cv::waitKey(100) > 0)
             break;
     }
     cap.release();

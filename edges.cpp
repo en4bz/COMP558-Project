@@ -41,14 +41,16 @@ int abs_dist(const cv::Vec4i& a, const cv::Vec4i& b){
 size_t get_match(const cv::Vec4i& toMatch, const std::vector<cv::Vec4i>& list){
     size_t min_index = -1;
     double min_value = 0xFFFF;
-    for(size_t i = 0; i < list.size(); i++){
-        double d = abs_dist(toMatch, list[i]);
-        if(d < min_value){
-            min_value = d;
-            min_index= i;
-        }
-    }
-    return min_index;
+    auto comp = [toMatch](const cv::Vec4i& a, const cv::Vec4i& b){ return abs_dist(toMatch,a) < abs_dist(toMatch,b); };
+    auto it = std::min_element(list.begin(),list.end(),comp);
+//    for(size_t i = 0; i < list.size(); i++){
+//        double d = abs_dist(toMatch, list[i]);
+//        if(d < min_value){
+//            min_value = d;
+//            min_index= i;
+//        }
+//    }
+    return std::distance(list.begin(), it); //min_index;
 }
 
 void filter_lines(std::vector<cv::Vec4i>& lines, double min){

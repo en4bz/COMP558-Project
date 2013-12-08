@@ -67,9 +67,6 @@ cv::Mat make_mask(cv::Vec4i line, cv::Size sz){
         for(int j = line[0]; j < line[2]; j++)
             mask.at<uchar>(i,j) = 200;
 
-//    cv::namedWindow("a",0);
-//    cv::imshow("a",mask);
-//    cv::waitKey(0);
     return mask;
 }
 
@@ -82,8 +79,8 @@ int detector::detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i line
     std::vector<cv::DMatch> matches;
 
     // detect and filter
-    cv::Mat maskA = make_mask(lineA, imgA.size());
-    cv::Mat maskB = make_mask(lineB, imgB.size());
+    const cv::Mat maskA = make_mask(lineA, imgA.size());
+    const cv::Mat maskB = make_mask(lineB, imgB.size());
 
     this->_detector.detect( imgA, keypointsA, maskA);
     this->_detector.detect( imgB, keypointsB, maskB);
@@ -103,16 +100,14 @@ int detector::detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i line
     // match
     this->matcher.match(descriptorsA, descriptorsB, matches);
 
-//    for(int i = 0; i < matches.size(); i++){
-//        std::cout << matches[i].trainIdx << std::endl;
-//        std::cout << matches[i].queryIdx << std::endl;
-//    }
+    std::sort(matches.begin(), matches.end());
 
-//    for(cv::KeyPoint x : keypointsA)
-//        std::cout << x.pt << std::endl;
-
-//    for(auto& x : matches)
-//        std::cout << x.imgIdx << "|" << x.queryIdx << "|" << x.trainIdx << std::endl;
+    //Calculate distances between matched points
+    for(size_t i = 0; i < matches.size(); i++) {
+        cv::Point2i pointA = keypointsA[matches[i].queryIdx].pt;
+        cv::Point2i pointB = keypointsB[matches[i].trainIdx].pt;
+        std::cout << matches[i].distance << "|" <<  pointA - pointB << "|" << std::endl;
+    }
 
     // Draw matches
     cv::Point2i a(lineA[0],lineA[1]);
@@ -128,5 +123,6 @@ int detector::detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i line
     cv::drawMatches(imgA, keypointsA, imgB, keypointsB, matches, imgMatch);
 
     cv::imshow(this->windowName, imgMatch);
+
     return 0;
 }
