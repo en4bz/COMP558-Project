@@ -37,8 +37,10 @@
 
 #include "detectors.hpp"
 
+using std::vector;
+
 void
-seperate(cv::Vec4i& line, const std::vector<cv::KeyPoint>& keypoints, std::vector<cv::KeyPoint>& above, std::vector<cv::KeyPoint>& below){
+seperate(cv::Vec4i& line, const vector<cv::KeyPoint>& keypoints, vector<cv::KeyPoint>& above, vector<cv::KeyPoint>& below){
     for(size_t i = 0; i < keypoints.size(); i++){
         cv::Point2i p = keypoints[i].pt;
         if(p.y < line[1] && p.y < line[3])
@@ -61,18 +63,32 @@ void distance_filter(cv::Vec4i line, std::vector<cv::KeyPoint>& keypoints){
 }
 
 cv::Mat make_mask(cv::Vec4i line, cv::Size sz){
-    const int max_d = 25;
+    const int dx = 10;
+    const int dy = 10;
     cv::Mat mask(sz, CV_8UC1, cv::Scalar(0));
-    for(int i = std::min(line[1],line[3]) - max_d; i < std::max(line[1],line[3]) + max_d; i++)
-        for(int j = line[0]; j < line[2]; j++)
-            mask.at<uchar>(i,j) = 200;
 
+    int left = std::max( 0, std::min(line[0],line[2]) - dx );
+    int right = std::min( sz.width, std::max(line[0],line[2]) + dx);
+
+    int top = std::max(0, std::min(line[1],line[3]) - dy);
+    int bottom = std::min( sz.height, std::max(line[1],line[3]) + dy);
+
+    cv::Rect roi( cv::Point2i(left,top), cv::Point2i(right,bottom));
+    mask(roi) = cv::Scalar(200);
     return mask;
+}
+
+int slope(cv::Vec4i line, cv::Point2i p){
+    const float dy = line[1] - line[3];
+    const float dx = line[0] - line[2];
+//    std::cout << "line: " << line << " Point: " << p << " A/B?: " << ((dy/dx)*(p.x-line[2]) + line[3]) << std::endl;
+    return (dy/dx)*(p.x-line[2]) + line[3];
 }
 
 #include <iostream>
 
-int detector::detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i lineB) {
+int detector::detect(const cv::Mat& imgA, const cv::Mat& imgB, cv::Vec4i lineA, cv::Vec4i lineB) {
+
 
     std::vector<cv::KeyPoint> keypointsA, keypointsB;
     cv::Mat descriptorsA, descriptorsB;
@@ -91,7 +107,7 @@ int detector::detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i line
     std::vector<cv::KeyPoint> aboveA, belowA, aboveB, belowB;
 
     seperate(lineA, keypointsA, aboveA, belowA);
-    seperate(lineA, keypointsB, aboveB, belowB);
+    seperate(lineB, keypointsB, aboveB, belowB);
 
     // extract
     this->extractor.compute( imgA, keypointsA, descriptorsA );
@@ -100,14 +116,31 @@ int detector::detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i line
     // match
     this->matcher.match(descriptorsA, descriptorsB, matches);
 
-    std::sort(matches.begin(), matches.end());
 
+    int move_a = 0;
+    int move_b = 0;
+
+    const float hamming_thresh = 40;
     //Calculate distances between matched points
     for(size_t i = 0; i < matches.size(); i++) {
-        cv::Point2i pointA = keypointsA[matches[i].queryIdx].pt;
-        cv::Point2i pointB = keypointsB[matches[i].trainIdx].pt;
-        std::cout << matches[i].distance << "|" <<  pointA - pointB << "|" << std::endl;
+        if( matches[i].distance < hamming_thresh ){
+            cv::Point2i pointA = keypointsA[matches[i].queryIdx].pt;
+            cv::Point2i pointB = keypointsB[matches[i].trainIdx].pt;
+            cv::Point2i diff = pointA - pointB;
+            int yA = slope(lineA, pointA);
+            int yB = slope(lineB, pointB);
+            if( (pointA.y > yA) != (pointB.y > yB))
+                std::cout << "Above Below Mismatch!" << std::endl;
+            if(pointA.y > yA && pointB.y > yB){
+                move_b += diff.y;
+            }
+            else{
+                move_a += diff.y;
+            }
+        }
     }
+
+    std::cout << "Move Above: " << move_a << " Move Below: " << move_b << std::endl;
 
     // Draw matches
     cv::Point2i a(lineA[0],lineA[1]);
@@ -116,12 +149,11 @@ int detector::detect(cv::Mat imgA, cv::Mat imgB, cv::Vec4i lineA, cv::Vec4i line
     cv::Point2i aa(lineB[0],lineB[1]);
     cv::Point2i bb(lineB[2],lineB[3]);
 
-    cv::line(imgA,  a, b, 0);
-    cv::line(imgB, aa,bb, 0);
+    //cv::line(imgA,  a, b, 0);
+    //cv::line(imgB, aa,bb, 0);
 
     cv::Mat imgMatch;
     cv::drawMatches(imgA, keypointsA, imgB, keypointsB, matches, imgMatch);
-
     cv::imshow(this->windowName, imgMatch);
 
     return 0;
