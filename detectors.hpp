@@ -1,6 +1,7 @@
 #ifndef DETECTOR_HPP
 #define DETECTOR_HPP
 
+#include <set>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -9,13 +10,16 @@
 #include <opencv2/opencv.hpp>
 
 class detector{
-    cv::FastFeatureDetector _detector;
-    cv::FREAK extractor;
-    cv::BFMatcher matcher;
-    std::string windowName;
+    const bool mDraw;
+    cv::FastFeatureDetector mDetector;
+    cv::BriefDescriptorExtractor mExtractor;
+    cv::BFMatcher mMatcher;
+    const std::string windowName;
 public:
-    detector(std::string pname) : _detector(25), matcher(cv::NORM_HAMMING), windowName(pname) {}
-    int detect(const cv::Mat& imgA, const cv::Mat& imgB, cv::Vec4i lineA, cv::Vec4i lineB);// = cv::Vec4i());
+    detector(const std::string& pname, const bool draw) :
+        mDraw(draw), mDetector(4), mMatcher(cv::NORM_HAMMING), windowName(pname) {}
+    detector(const detector&) = delete; //Non Copyable
+    double detect(const cv::Mat& imgA, const cv::Mat& imgB, const cv::Vec4i lineA, const cv::Vec4i lineB, const bool above);
 };
 
 #endif

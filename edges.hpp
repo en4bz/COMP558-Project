@@ -20,10 +20,10 @@ int abs_dist(const cv::Vec4i& a, const cv::Vec4i& b);
 /*Returns the index of the line that has the closest
  *match relative to toMatch in list
  */
-size_t get_match(const cv::Vec4i& toMatch, const std::vector<cv::Vec4i>& list);
+int get_match(const cv::Vec4i& toMatch, const std::vector<cv::Vec4i>& list);
 
 /* Filters lines by angle relative to horizontal
  */
-void filter_lines(std::vector<cv::Vec4i>& lines, double min = CV_PI/9);
+void filter_lines(std::vector<cv::Vec4i>& lines, double min = CV_PI/12);
 
 #endif

@@ -1,56 +1,4 @@
-//  demo.cpp
-//
-//	Here is an example on how to use the descriptor presented in the following paper:
-//	A. Alahi, R. Ortiz, and P. Vandergheynst.
-//  FREAK: Fast Retina Keypoint. In IEEE Conference on Computer Vision and Pattern Recognition, 2012.
-//  CVPR 2012 Open Source Award winner
-//
-//	Copyright (C) 2011-2012  Signal processing laboratory 2, EPFL,
-//	Kirell Benzi (kirell.benzi@epfl.ch),
-//	Raphael Ortiz (raphael.ortiz@a3.epfl.ch),
-//	Alexandre Alahi (alexandre.alahi@epfl.ch)
-//	and Pierre Vandergheynst (pierre.vandergheynst@epfl.ch)
-//
-//  Redistribution and use in source and binary forms, with or without modification,
-//  are permitted provided that the following conditions are met:
-//
-//   * Redistribution's of source code must retain the above copyright notice,
-//     this list of conditions and the following disclaimer.
-//
-//   * Redistribution's in binary form must reproduce the above copyright notice,
-//     this list of conditions and the following disclaimer in the documentation
-//     and/or other materials provided with the distribution.
-//
-//   * The name of the copyright holders may not be used to endorse or promote products
-//     derived from this software without specific prior written permission.
-//
-//  This software is provided by the copyright holders and contributors "as is" and
-//  any express or implied warranties, including, but not limited to, the implied
-//  warranties of merchantability and fitness for a particular purpose are disclaimed.
-//  In no event shall the Intel Corporation or contributors be liable for any direct,
-//  indirect, incidental, special, exemplary, or consequential damages
-//  (including, but not limited to, procurement of substitute goods or services;
-//  loss of use, data, or profits; or business interruption) however caused
-//  and on any theory of liability, whether in contract, strict liability,
-//  or tort (including negligence or otherwise) arising in any way out of
-//  the use of this software, even if advised of the possibility of such damage.
-
 #include "detectors.hpp"
-
-using std::vector;
-
-void
-seperate(cv::Vec4i& line, const vector<cv::KeyPoint>& keypoints, vector<cv::KeyPoint>& above, vector<cv::KeyPoint>& below){
-    for(size_t i = 0; i < keypoints.size(); i++){
-        cv::Point2i p = keypoints[i].pt;
-        if(p.y < line[1] && p.y < line[3])
-            below.push_back(keypoints[i]);
-        else if(p.y > line[1] && p.y > line[3])
-            above.push_back(keypoints[i]);
-        else
-            continue;//Check using line formula
-    }
-}
 
 void distance_filter(cv::Vec4i line, std::vector<cv::KeyPoint>& keypoints){
     auto filter = [&line](cv::KeyPoint kp){
@@ -62,99 +10,116 @@ void distance_filter(cv::Vec4i line, std::vector<cv::KeyPoint>& keypoints){
     keypoints.erase( std::remove_if(keypoints.begin(), keypoints.end(), filter), keypoints.end());
 }
 
-cv::Mat make_mask(cv::Vec4i line, cv::Size sz){
-    const int dx = 10;
-    const int dy = 10;
+cv::Mat mask(const cv::Vec4i line, const cv::Size sz, const bool above){
+    const int max_dist = 25;
     cv::Mat mask(sz, CV_8UC1, cv::Scalar(0));
-
-    int left = std::max( 0, std::min(line[0],line[2]) - dx );
-    int right = std::min( sz.width, std::max(line[0],line[2]) + dx);
-
-    int top = std::max(0, std::min(line[1],line[3]) - dy);
-    int bottom = std::min( sz.height, std::max(line[1],line[3]) + dy);
-
-    cv::Rect roi( cv::Point2i(left,top), cv::Point2i(right,bottom));
-    mask(roi) = cv::Scalar(200);
+    cv::LineIterator lit(mask, cv::Point2d(line[0],line[1]), cv::Point2i(line[2],line[3]) );
+    for(int i = 0; i < lit.count; i++){
+        cv::Point2i p = lit.pos(); //
+        for(int j = 0; j < max_dist; j ++){
+            cv::Point2i inc(0,j);
+            if(above && (p - inc).y > 0)
+                mask.at<uchar>(p - inc) = 200;
+            else if( (p + inc).y < sz.height)
+                mask.at<uchar>(p + inc) = 200;
+            else
+                break;
+        }
+        lit++;
+    }
+   //cv::imshow("Mask",mask);
+   // cv::waitKey(0);
     return mask;
 }
 
-int slope(cv::Vec4i line, cv::Point2i p){
-    const float dy = line[1] - line[3];
-    const float dx = line[0] - line[2];
-//    std::cout << "line: " << line << " Point: " << p << " A/B?: " << ((dy/dx)*(p.x-line[2]) + line[3]) << std::endl;
-    return (dy/dx)*(p.x-line[2]) + line[3];
+int dist_from_line(const cv::Vec4i v, const cv::Point2i p){
+    auto dot = [](const cv::Point2i u, const cv::Point2i v ) -> double {
+        return u.x*v.x + u.y*v.y;
+    };
+    const cv::Point2i org(v[0],v[1]);
+    const cv::Point2i a = p - org;
+    const cv::Point2i b = cv::Point2i(v[2],v[3]) - org;
+    const double scalar = dot(a,b) / dot(b,b);
+    const cv::Point2i rejection = a - b*scalar;
+    const double len = sqrt(dot(rejection,rejection));
+ //   std::cout << "Len: " << len << std::endl;
+    return len;
 }
 
-#include <iostream>
-
-int detector::detect(const cv::Mat& imgA, const cv::Mat& imgB, cv::Vec4i lineA, cv::Vec4i lineB) {
-
+double detector::detect(const cv::Mat& imgA, const cv::Mat& imgB, const cv::Vec4i lineA, const cv::Vec4i lineB, const bool above) {
 
     std::vector<cv::KeyPoint> keypointsA, keypointsB;
     cv::Mat descriptorsA, descriptorsB;
     std::vector<cv::DMatch> matches;
 
     // detect and filter
-    const cv::Mat maskA = make_mask(lineA, imgA.size());
-    const cv::Mat maskB = make_mask(lineB, imgB.size());
+    const cv::Mat maskA = mask(lineA, imgA.size(), above);
+    const cv::Mat maskB = mask(lineB, imgB.size(), above);
 
-    this->_detector.detect( imgA, keypointsA, maskA);
-    this->_detector.detect( imgB, keypointsB, maskB);
+    this->mDetector.detect( imgA, keypointsA, maskA);
+    this->mDetector.detect( imgB, keypointsB, maskB);
 
     if(keypointsA.size() < 1 || keypointsB.size() < 1)
-        return 1;
-
-    std::vector<cv::KeyPoint> aboveA, belowA, aboveB, belowB;
-
-    seperate(lineA, keypointsA, aboveA, belowA);
-    seperate(lineB, keypointsB, aboveB, belowB);
+        return 0;
 
     // extract
-    this->extractor.compute( imgA, keypointsA, descriptorsA );
-    this->extractor.compute( imgB, keypointsB, descriptorsB );
+    this->mExtractor.compute( imgA, keypointsA, descriptorsA );
+    this->mExtractor.compute( imgB, keypointsB, descriptorsB );
 
     // match
-    this->matcher.match(descriptorsA, descriptorsB, matches);
+    this->mMatcher.match(descriptorsA, descriptorsB, matches);
 
 
-    int move_a = 0;
-    int move_b = 0;
-
-    const float hamming_thresh = 40;
     //Calculate distances between matched points
+    //Verified that below is alway positive and above is always negative.
+    const int bin_size = 1;
+    const float hamming_thresh = 10;
+    std::multiset<int> histogramA;
+    std::multiset<int> histogramB;
+
+    int max_d = 0;
+
     for(size_t i = 0; i < matches.size(); i++) {
         if( matches[i].distance < hamming_thresh ){
-            cv::Point2i pointA = keypointsA[matches[i].queryIdx].pt;
-            cv::Point2i pointB = keypointsB[matches[i].trainIdx].pt;
-            cv::Point2i diff = pointA - pointB;
-            int yA = slope(lineA, pointA);
-            int yB = slope(lineB, pointB);
-            if( (pointA.y > yA) != (pointB.y > yB))
-                std::cout << "Above Below Mismatch!" << std::endl;
-            if(pointA.y > yA && pointB.y > yB){
-                move_b += diff.y;
-            }
-            else{
-                move_a += diff.y;
-            }
+            //std::cout << matches[i].distance << " | ";
+            const cv::Point2i pointA = keypointsA[matches[i].queryIdx].pt;
+            const cv::Point2i pointB = keypointsB[matches[i].trainIdx].pt;
+            const int d1 = dist_from_line(lineA, pointA);
+            const int d2 = dist_from_line(lineB, pointB);
+            max_d = std::max(max_d,d1);
+            max_d = std::max(max_d,d2);
+            histogramA.insert(d1);
+            histogramB.insert(d2);
         }
     }
 
-    std::cout << "Move Above: " << move_a << " Move Below: " << move_b << std::endl;
+    //std::cout << "Matches Made: " << histogramA.size() << std::endl;
 
-    // Draw matches
-    cv::Point2i a(lineA[0],lineA[1]);
-    cv::Point2i b(lineA[2],lineA[3]);
+    int maxA = 0;
+    int maxB = 0;
+    int max_valueA = -1;
+    int max_valueB = -1;
 
-    cv::Point2i aa(lineB[0],lineB[1]);
-    cv::Point2i bb(lineB[2],lineB[3]);
+    for(int i = 0; i <= max_d; i++){
+        int cA = histogramA.count(i); //Number with key i
+        int cB = histogramB.count(i); //Number with key i
+        if(cA >= max_valueA){
+            max_valueA = cA;
+            maxA = i;
+        }
+        if(cB >= max_valueB){
+            max_valueB = cB;
+            maxB = i;
+        }
+    }
 
-    //cv::line(imgA,  a, b, 0);
-    //cv::line(imgB, aa,bb, 0);
+   // std::cout << maxA << "+" << histogramA.count(maxA) << "|" << maxB << "+" << histogramB.count(maxB) << std::endl;
 
-    cv::Mat imgMatch;
-    cv::drawMatches(imgA, keypointsA, imgB, keypointsB, matches, imgMatch);
-    cv::imshow(this->windowName, imgMatch);
 
-    return 0;
+    if(this->mDraw){
+        cv::Mat imgMatch;
+        cv::drawMatches(imgA, keypointsA, imgB, keypointsB, matches, imgMatch);
+        cv::imshow(this->windowName, imgMatch);
+    }
+    return std::abs(maxA - maxB);
 }
